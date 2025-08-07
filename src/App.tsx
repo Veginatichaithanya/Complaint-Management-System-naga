@@ -8,7 +8,14 @@ import Admin from "./pages/Admin";
 import MeetingSchedulerPage from "./pages/MeetingScheduler";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function App() {
   return (
