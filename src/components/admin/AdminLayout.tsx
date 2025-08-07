@@ -28,18 +28,10 @@ interface AdminLayoutProps {
 export function AdminLayout({ children, activeTab, onTabChange }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { stats } = useRealTimeNotifications();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
 
   const handleSignOut = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      toast.success('Signed out successfully');
-      window.location.href = '/';
-    } catch (error) {
-      console.error('Error signing out:', error);
-      toast.error('Error signing out');
-    }
+    await signOut();
   };
 
   const navItems = [

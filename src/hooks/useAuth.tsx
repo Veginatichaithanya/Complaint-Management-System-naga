@@ -130,29 +130,59 @@ export function useAuth() {
     }
   };
 
+  const cleanupAuthState = () => {
+    // Remove standard auth tokens
+    try {
+      localStorage.removeItem('supabase.auth.token');
+      // Remove all Supabase auth keys from localStorage
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+          localStorage.removeItem(key);
+        }
+      });
+      // Remove from sessionStorage if in use
+      Object.keys(sessionStorage || {}).forEach((key) => {
+        if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+          sessionStorage.removeItem(key);
+        }
+      });
+    } catch (error) {
+      console.error('Error cleaning up auth state:', error);
+    }
+  };
+
   const signOut = async () => {
     try {
       setLoading(true);
       
+      // Clean up auth state first
+      cleanupAuthState();
+      
+      // Clear local state
       setUser(null);
       setSession(null);
       
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        console.log('Sign out error (non-critical):', error.message);
-        if (!error.message.includes('session_not_found')) {
-          toast.error('Sign out error: ' + error.message);
-        }
-      } else {
+      // Attempt global sign out (fallback if it fails)
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
         toast.success('Signed out successfully!');
+      } catch (signOutError: any) {
+        console.log('Sign out error (non-critical):', signOutError.message);
+        if (!signOutError.message.includes('session_not_found')) {
+          toast.error('Sign out error: ' + signOutError.message);
+        } else {
+          toast.success('Signed out successfully!');
+        }
       }
       
+      // Force page reload for a clean state
       window.location.href = '/';
       
-      return { error };
+      return { error: null };
     } catch (err) {
       console.error('Logout error:', err);
+      // Clean up state even if logout fails
+      cleanupAuthState();
       setUser(null);
       setSession(null);
       window.location.href = '/';
