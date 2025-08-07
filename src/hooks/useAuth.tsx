@@ -158,7 +158,7 @@ export function useAuth() {
       // Clean up auth state first
       cleanupAuthState();
       
-      // Clear local state
+      // Clear local state immediately
       setUser(null);
       setSession(null);
       
@@ -175,8 +175,11 @@ export function useAuth() {
         }
       }
       
-      // Force page reload for a clean state
-      window.location.href = '/';
+      // Add a small delay to ensure state is fully cleared
+      setTimeout(() => {
+        // Force page reload for a clean state
+        window.location.href = '/';
+      }, 100);
       
       return { error: null };
     } catch (err) {
@@ -185,7 +188,9 @@ export function useAuth() {
       cleanupAuthState();
       setUser(null);
       setSession(null);
-      window.location.href = '/';
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 100);
       return { error: null };
     } finally {
       setLoading(false);

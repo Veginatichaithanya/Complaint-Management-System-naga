@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { AdminPanel } from '@/components/admin/AdminPanel';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
@@ -25,9 +26,9 @@ export default function Admin() {
           <CardContent className="p-8 text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
             <p className="text-gray-600 mb-6">You need to be logged in to access the admin panel.</p>
-            <a href="/" className="text-blue-600 hover:text-blue-800 font-medium">
+            <Link to="/" className="text-blue-600 hover:text-blue-800 font-medium">
               Go to Login
-            </a>
+            </Link>
           </CardContent>
         </Card>
       </div>
@@ -42,9 +43,9 @@ export default function Admin() {
           <CardContent className="p-8 text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
             <p className="text-gray-600 mb-6">You don't have admin privileges.</p>
-            <a href="/" className="text-blue-600 hover:text-blue-800 font-medium">
+            <Link to="/" className="text-blue-600 hover:text-blue-800 font-medium">
               Go to Home
-            </a>
+            </Link>
           </CardContent>
         </Card>
       </div>
