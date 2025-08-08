@@ -1,135 +1,177 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+};
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const { message, chatHistory = [], userId } = await req.json()
-    
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY')
-    if (!geminiApiKey) {
-      throw new Error('Gemini API key not configured')
+    // Get the auth token from the request
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'No authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    // Create Supabase client with user context (not service role)
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { authorization: authHeader }
+        }
+      }
+    );
 
-    // Get knowledge base context (we'll implement this later)
-    const context = await getKnowledgeBaseContext(message, supabase)
+    // Get authenticated user from token
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    // Prepare messages for Gemini
-    const systemPrompt = `You are an AI assistant for IBM employees helping resolve internal issues. You specialize in:
-- Software installation problems (Rational, WAS, DB2, etc.)
-- Access control and permission issues  
-- Login/VPN connectivity problems
-- Bug reporting and workflow delays
-- Ticket status inquiries
-- General IBM internal tools support
+    const { message } = await req.json();
 
-Context from knowledge base:
-${context}
+    if (!message) {
+      return new Response(
+        JSON.stringify({ error: 'Message is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-Provide clear, actionable solutions. If you need more information, ask specific questions. Always be professional and helpful.`
+    // Use authenticated user ID (derived from token, not request body)
+    const userId = user.id;
+    console.log('Processing chat for authenticated user:', userId);
 
-    const messages = [
-      { role: 'user', parts: [{ text: systemPrompt }] },
-      ...chatHistory.map((msg: any) => ({
-        role: msg.sender === 'user' ? 'user' : 'model',
-        parts: [{ text: msg.text }]
-      })),
-      { role: 'user', parts: [{ text: message }] }
-    ]
+    // Store user message using the authenticated user context
+    const { error: insertError } = await supabase
+      .from('chat_history')
+      .insert({
+        user_id: userId,
+        message: message,
+        sender_type: 'user'
+      });
+
+    if (insertError) {
+      console.error('Error inserting user message:', insertError);
+      // Continue processing even if chat history fails
+    }
+
+    // Get Gemini API key
+    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+    if (!geminiApiKey) {
+      return new Response(
+        JSON.stringify({ error: 'Gemini API key not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Enhanced system prompt for complaint desk context
+    const systemPrompt = `You are a helpful AI assistant for a complaint management system. 
+    You help employees with their concerns, guide them through the complaint process, and provide support.
+    Be professional, empathetic, and concise. If someone has a serious complaint, encourage them to use the formal complaint system.
+    Keep responses helpful but brief (under 200 words when possible).`;
+
+    // Get recent chat history for context (using RLS-protected query)
+    const { data: chatHistory } = await supabase
+      .from('chat_history')
+      .select('message, sender_type, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    // Build conversation context
+    let conversationContext = systemPrompt + "\n\nRecent conversation:\n";
+    if (chatHistory && chatHistory.length > 0) {
+      chatHistory.reverse().forEach(chat => {
+        conversationContext += `${chat.sender_type === 'user' ? 'User' : 'Assistant'}: ${chat.message}\n`;
+      });
+    }
+    conversationContext += `User: ${message}\nAssistant:`;
 
     // Call Gemini API
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: messages.slice(1), // Remove system prompt from contents
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 1024,
+    const geminiResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiApiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        safetySettings: [
-          {
-            category: 'HARM_CATEGORY_HARASSMENT',
-            threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-          },
-          {
-            category: 'HARM_CATEGORY_HATE_SPEECH',
-            threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: conversationContext
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            topP: 0.8,
+            maxOutputTokens: 1000,
           }
-        ]
-      }),
-    })
+        })
+      }
+    );
 
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`Gemini API error: ${error}`)
+    if (!geminiResponse.ok) {
+      const errorData = await geminiResponse.text();
+      console.error('Gemini API error:', errorData);
+      return new Response(
+        JSON.stringify({ error: 'Failed to get AI response' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    const data = await response.json()
-    const aiResponse = data.candidates[0]?.content?.parts[0]?.text || 'Sorry, I could not generate a response.'
+    const geminiData = await geminiResponse.json();
+    const aiResponse = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || 
+                     'Sorry, I encountered an issue processing your request.';
 
-    // Store chat interaction
-    if (userId) {
-      await supabase.from('chat_history').insert({
+    // Store AI response using authenticated user context
+    const { error: aiInsertError } = await supabase
+      .from('chat_history')
+      .insert({
         user_id: userId,
-        user_message: message,
-        ai_response: aiResponse,
-        created_at: new Date().toISOString()
-      })
+        message: aiResponse,
+        sender_type: 'bot'
+      });
+
+    if (aiInsertError) {
+      console.error('Error inserting AI message:', aiInsertError);
+      // Continue processing even if chat history fails
     }
 
     return new Response(
       JSON.stringify({ response: aiResponse }),
       { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      },
-    )
+        status: 200, 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        } 
+      }
+    );
+
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Error in gemini-chat function:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      },
-    )
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
-})
-
-async function getKnowledgeBaseContext(message: string, supabase: any): Promise<string> {
-  try {
-    // Search knowledge base for relevant content
-    const { data: kbEntries, error } = await supabase
-      .from('knowledge_base')
-      .select('content, title')
-      .textSearch('content', message)
-      .limit(3)
-
-    if (error) throw error
-
-    if (kbEntries && kbEntries.length > 0) {
-      return kbEntries.map((entry: any) => `${entry.title}: ${entry.content}`).join('\n\n')
-    }
-  } catch (error) {
-    console.error('Knowledge base search error:', error)
-  }
-  
-  return 'No specific knowledge base context found.'
-}
+});
