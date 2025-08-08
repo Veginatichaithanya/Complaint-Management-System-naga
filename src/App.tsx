@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Admin from "./pages/Admin";
+import UserAuth from "./pages/UserAuth";
 import MeetingSchedulerPage from "./pages/MeetingScheduler";
 import NotFound from "./pages/NotFound";
 
@@ -26,6 +27,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/user-auth" element={<UserAuth />} />
             <Route path="/schedule-meeting" element={<MeetingSchedulerPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

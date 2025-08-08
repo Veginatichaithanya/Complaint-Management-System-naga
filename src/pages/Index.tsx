@@ -1,16 +1,14 @@
 
-import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { AuthCard } from "@/components/AuthCard";
 import Dashboard from "@/components/Dashboard";
 import { LandingPage } from "@/components/LandingPage";
 import { Navbar } from "@/components/Navbar";
 import { AdminPanel } from "@/components/admin/AdminPanel";
-import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 
 const Index = () => {
   const { user, loading } = useAuth();
-  const [showAuth, setShowAuth] = useState(false);
+  const navigate = useNavigate();
 
   if (loading) {
     return (
@@ -36,38 +34,14 @@ const Index = () => {
     }
   }
 
+  const handleAuthClick = () => {
+    navigate('/user-auth');
+  };
+
   return (
     <>
-      <Navbar onAuthClick={() => setShowAuth(true)} />
+      <Navbar onAuthClick={handleAuthClick} />
       <LandingPage />
-      
-      <AnimatePresence>
-        {showAuth && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            onClick={() => setShowAuth(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md"
-            >
-              <AuthCard onSuccess={() => setShowAuth(false)} />
-              <button
-                onClick={() => setShowAuth(false)}
-                className="absolute top-4 right-4 text-white/60 hover:text-white text-2xl"
-              >
-                ×
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </>
   );
 };
