@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, User, CheckCircle } from 'lucide-react';
@@ -22,6 +21,7 @@ export function AuthCard({ onSuccess }: AuthCardProps) {
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const { signIn, signInWithGoogle } = useAuth();
 
@@ -76,16 +76,24 @@ export function AuthCard({ onSuccess }: AuthCardProps) {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setIsLoading(true);
+    setError(null);
     
     try {
       if (isSignUp) {
         await handleSignUp(email, password, fullName);
       } else {
-        const { error } = await signIn(email, password);
-        if (!error && onSuccess) {
+        const { error: signInError } = await signIn(email, password);
+        if (signInError) {
+          setError('Invalid username or password');
+          return;
+        }
+        
+        if (onSuccess) {
           onSuccess();
         }
       }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -332,6 +340,17 @@ export function AuthCard({ onSuccess }: AuthCardProps) {
                 </motion.p>
               </div>
             </div>
+
+            {/* Error message */}
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm text-center"
+              >
+                {error}
+              </motion.div>
+            )}
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-6 relative z-10">

@@ -35,7 +35,7 @@ const Index = () => {
   }
 
   const handleAuthClick = () => {
-    navigate('/user-auth');
+    navigate('/login/user');
   };
 
   return (

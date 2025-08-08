@@ -21,7 +21,12 @@ export function Navbar({ onAuthClick }: NavbarProps) {
   ];
 
   const handleAdminClick = () => {
-    navigate('/admin');
+    navigate('/login/admin');
+    setIsOpen(false);
+  };
+
+  const handleUserAuthClick = () => {
+    navigate('/login/user');
     setIsOpen(false);
   };
 
@@ -75,7 +80,7 @@ export function Navbar({ onAuthClick }: NavbarProps) {
               Admin Login
             </Button>
             <Button
-              onClick={onAuthClick}
+              onClick={handleUserAuthClick}
               className="bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-700 hover:to-cyan-700 text-white rounded-xl"
             >
               Sign In
@@ -123,10 +128,7 @@ export function Navbar({ onAuthClick }: NavbarProps) {
                 Admin Login
               </Button>
               <Button
-                onClick={() => {
-                  onAuthClick();
-                  setIsOpen(false);
-                }}
+                onClick={handleUserAuthClick}
                 className="w-full bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-700 hover:to-cyan-700 text-white rounded-xl"
               >
                 Sign In
