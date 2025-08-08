@@ -1,9 +1,8 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { AdminPanel } from '@/components/admin/AdminPanel';
 import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent } from '@/components/ui/card';
 
 export default function Admin() {
   const { user, loading } = useAuth();
@@ -19,37 +18,14 @@ export default function Admin() {
     );
   }
 
+  // If no user, redirect to login
   if (!user) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="bg-white border border-gray-200 shadow-lg max-w-md mx-auto">
-          <CardContent className="p-8 text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
-            <p className="text-gray-600 mb-6">You need to be logged in to access the admin panel.</p>
-            <Link to="/" className="text-blue-600 hover:text-blue-800 font-medium">
-              Go to Login
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <Navigate to="/user-auth" replace />;
   }
 
   // Check if user is admin
   if (user.email !== 'admin@gmail.com') {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="bg-white border border-gray-200 shadow-lg max-w-md mx-auto">
-          <CardContent className="p-8 text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
-            <p className="text-gray-600 mb-6">You don't have admin privileges.</p>
-            <Link to="/" className="text-blue-600 hover:text-blue-800 font-medium">
-              Go to Home
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <Navigate to="/" replace />;
   }
 
   return <AdminPanel />;
