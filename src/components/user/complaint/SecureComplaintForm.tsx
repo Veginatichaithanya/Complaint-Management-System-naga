@@ -94,11 +94,19 @@ export function SecureComplaintForm({ onSuccess }: SecureComplaintFormProps) {
         setUploading(false);
       }
 
-      // Submit complaint with secure attachment path
-      const result = await submitComplaint({
-        ...data,
+      // Submit complaint with secure attachment path - ensure all required fields are present
+      const complaintData = {
+        full_name: data.full_name,
+        employee_id: data.employee_id,
+        department: data.department,
+        title: data.title,
+        category: data.category,
+        priority: data.priority,
+        description: data.description,
         attachment: attachmentPath
-      });
+      };
+
+      const result = await submitComplaint(complaintData);
 
       if (result) {
         form.reset();

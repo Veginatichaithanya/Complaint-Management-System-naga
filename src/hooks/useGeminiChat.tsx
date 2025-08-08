@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -22,8 +23,8 @@ export function useGeminiChat() {
   const [isTyping, setIsTyping] = useState(false);
   const { user } = useAuth();
 
-  const sendMessage = async (message: string) => {
-    if (!message.trim()) return;
+  const sendMessage = async (message: string): Promise<string> => {
+    if (!message.trim()) return '';
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -60,6 +61,7 @@ export function useGeminiChat() {
       };
 
       setMessages(prev => [...prev, botMessage]);
+      return data.response;
     } catch (error) {
       console.error('Chat error:', error);
       toast.error('Failed to get AI response. Please check if your Gemini API key is configured.');
@@ -72,6 +74,7 @@ export function useGeminiChat() {
       };
       
       setMessages(prev => [...prev, errorMessage]);
+      return errorMessage.text;
     } finally {
       setIsTyping(false);
     }
@@ -90,6 +93,7 @@ export function useGeminiChat() {
     messages,
     isTyping,
     sendMessage,
-    clearChat
+    clearChat,
+    isLoading: isTyping
   };
 }
